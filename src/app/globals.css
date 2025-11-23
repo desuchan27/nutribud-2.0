@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	:root {
+		--background: 0 0% 100%;
+		--foreground: 240 10% 3.9%;
+	}
+}
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 0.5rem;
+   
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 1rem;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  @media (pointer: fine) {
+		::-webkit-scrollbar,
+		::-webkit-scrollbar-corner {
+			color: hsl(var(--primary));
+			background: hsl(var(--accent) / 0.08);
+			width: 12px;
+			height: 12px;
+		}
+		::-webkit-scrollbar-button {
+			height: 0;
+			width: 0;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: content-box currentColor;
+			border: 2px solid transparent;
+			border-radius: 8px;
+			color: hsl(var(--muted-foreground));
+			min-height: 48px;
+			min-width: 48px;
+		}
+
+		@supports not (selector(::-webkit-scrollbar)) {
+			* {
+				scrollbar-color: hsl(var(--muted-foreground)) transparent;
+				scrollbar-gutter: auto;
+				scrollbar-width: thin;
+				border-radius: 8px;
+			}
+		}
+	}
+
+	.scrollbar-none {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+
+	.scrollbar-none::-webkit-scrollbar {
+		display: none;
+	}
+
+	select::-webkit-scrollbar {
+		display: none;
+	}
