@@ -40,7 +40,6 @@ export const submitUserBio = async (id: string, bio: string) => {
 };
 
 export const uploadProfileImage = async (id: string, image: string) => {
-	console.log("Received imageUrl:", image); // Log received imageUrl
 
 	try {
 		const session = await validateRequest();
@@ -65,7 +64,6 @@ export const uploadProfileImage = async (id: string, image: string) => {
 					profileImage: image,
 				},
 			});
-			console.log("Profile updated successfully");
 			return {
 				success: "Profile updated successfully",
 			};

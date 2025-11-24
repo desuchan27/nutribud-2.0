@@ -25,7 +25,6 @@ export default function LoginPage() {
   const errorMessage = "text-sm text-red-500 font-semibold text-right";
 
   const onSubmit = (values: z.infer<typeof loginUserSchema>) => {
-    console.log(values);
 
     startTransition(() => {
       login(values).then((data) => {

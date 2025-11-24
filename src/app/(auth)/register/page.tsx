@@ -41,7 +41,6 @@ export default function RegistrationPage() {
   const normalMessage = "text-sm text-zinc-700";
 
   const onSubmit = (values: z.infer<typeof registerUserSchema>) => {
-    console.log(values);
 
     startTransition(() => {
       register(values).then((data) => {

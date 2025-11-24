@@ -31,8 +31,6 @@ export default async function ProtectedLayout({
   // if (session.user && !session.user.userInfo) {
   //   redirect(`/onboarding/${session.user.id}`);
   // }
-
-  console.log("user", userbirthday, userheight, userweight);
   
   return (
     <SessionProvider value={session}>
