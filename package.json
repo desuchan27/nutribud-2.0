@@ -9,7 +9,8 @@
     "lint": "next lint",
     "prisma:studio": "npx prisma studio",
     "prisma:seed": "npx prisma db seed",
-    "prisma:migrate": "npx prisma migrate"
+    "prisma:migrate": "npx prisma migrate",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
