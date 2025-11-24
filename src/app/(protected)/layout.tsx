@@ -1,4 +1,3 @@
-import db from "@/lib/db";
 import { validateRequest } from "@/auth";
 import { SessionProvider } from "@/lib/auth/SessionContext";
 import { redirect } from "next/navigation";
@@ -12,16 +11,6 @@ export default async function ProtectedLayout({
   children: React.ReactNode;
 }>) {
   const session = await validateRequest();
-
-  const user = await db.userInfo.findFirst({
-    where: {
-      userId: session.user?.id,
-    },
-  });
-
-  const userbirthday = user?.birthDate;
-  const userheight = user?.height;
-  const userweight = user?.weight;
 
   if (!session.user) {
     redirect("/login");
