@@ -2,6 +2,7 @@ import { utapi } from "@/server/uploadthing";
 import { validateRequest } from "@/auth";
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { logFileUpload, logUnauthorizedAccess, logRateLimitViolation } from "@/lib/logger";
 
 // ----------------------------------------------------------------------
 
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
 	const session = await validateRequest();
 	
 	if (!session.user) {
+		logUnauthorizedAccess("/api/upload", undefined);
 		return NextResponse.json(
 			{ error: "Unauthorized" },
 			{ status: 401 }
@@ -24,6 +26,7 @@ export async function POST(request: Request) {
 	});
 
 	if (!rateLimitResult.success) {
+		logRateLimitViolation(identifier, "/api/upload");
 		return NextResponse.json(
 			{
 				error: `Upload rate limit exceeded. Please try again in ${rateLimitResult.retryAfter} seconds.`,
@@ -52,6 +55,9 @@ export async function POST(request: Request) {
 				});
 			}
 		});
+		
+		// Log file upload
+		logFileUpload(session.user.id, files.length);
 	}
 
 	return Response.json({

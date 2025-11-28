@@ -8,6 +8,7 @@ import { Argon2id } from "oslo/password";
 import { lucia, validateRequest } from "@/auth";
 import { cookies } from "next/headers";
 import { rateLimit } from "@/lib/rate-limit";
+import { logFailedLogin, logSuccessfulLogin, logRateLimitViolation } from "@/lib/logger";
 
 export const register = async (values: z.infer<typeof registerUserSchema>) => {
   try {
@@ -21,27 +22,30 @@ export const register = async (values: z.infer<typeof registerUserSchema>) => {
     });
 
     if (!rateLimitResult.success) {
+      logRateLimitViolation(`register:${email}`, "register");
       return {
         error: `Too many registration attempts. Please try again in ${rateLimitResult.retryAfter} seconds.`,
       };
     }
 
-    // check if email exists
-    const existingUserEmail = await db.user.findFirst({
-      where: { email },
+    // Check if email or username exists in a single query to prevent timing attacks
+    const existingUser = await db.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { username },
+        ],
+      },
     });
 
-    if (existingUserEmail) {
-      return { error: "Email already exists" };
-    }
-
-    // check if username exists
-    const existingUserUsername = await db.user.findFirst({
-      where: { username },
-    });
-
-    if (existingUserUsername) {
-      return { error: "Username already exists" };
+    // Use generic error message to prevent enumeration
+    if (existingUser) {
+      if (existingUser.email === email) {
+        return { error: "An account with this email or username already exists" };
+      }
+      if (existingUser.username === username) {
+        return { error: "An account with this email or username already exists" };
+      }
     }
 
     // check if password matches
@@ -49,22 +53,8 @@ export const register = async (values: z.infer<typeof registerUserSchema>) => {
       return { error: "Passwords do not match" };
     }
 
-    //PASSWORD STRENGTH VALIDATION
-    if (password.length < 8) {
-      return { error: "Password must be at least 8 characters long" };
-    }
-    if (!/(?=.*[a-z])/.test(password)) {
-      return { error: "Password must contain at least one lowercase letter" };
-    }
-    if (!/(?=.*[A-Z])/.test(password)) {
-      return { error: "Password must contain at least one uppercase letter" };
-    }
-    if (!/(?=.*\d)/.test(password)) {
-      return { error: "Password must contain at least one number" };
-    }
-    if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(password)) {
-      return { error: "Password must contain at least one special character" };
-    }
+    // Password strength validation is handled by Zod schema
+    // No need to duplicate validation here
 
     const hashedPassword = await new Argon2id().hash(password);
 
@@ -79,8 +69,16 @@ export const register = async (values: z.infer<typeof registerUserSchema>) => {
     });
 
   } catch (error) {
+    // Log detailed error server-side, return generic message to client
+    console.error("Registration error:", error);
     if (error instanceof Error) {
-      return { error: error.message };
+      // In production, use generic error messages
+      const isProduction = process.env.NODE_ENV === "production";
+      return { 
+        error: isProduction 
+          ? "An error occurred during registration. Please try again." 
+          : error.message 
+      };
     } else {
       return { error: "An unknown error occurred" };
     }
@@ -97,6 +95,7 @@ export const login = async (values: z.infer<typeof loginUserSchema>) => {
   });
 
   if (!rateLimitResult.success) {
+    logRateLimitViolation(`login:${email}`, "login");
     return {
       error: `Too many login attempts. Please try again in ${rateLimitResult.retryAfter} seconds.`,
     };
@@ -113,16 +112,20 @@ export const login = async (values: z.infer<typeof loginUserSchema>) => {
   if (!existingUser) {
     // Still hash a dummy password to prevent timing attacks
     await new Argon2id().hash("dummy");
+    logFailedLogin(email, "User not found");
     return { error: "Invalid email or password" }
   }
 
   const validPassword = await new Argon2id().verify(existingUser.password, password)
 
   if (!validPassword) {
+    logFailedLogin(email, "Invalid password");
     return {
       error: "Invalid email or password"
     }
   }
+
+  logSuccessfulLogin(existingUser.id, email);
 
   const session = await lucia.createSession(existingUser.id, {})
   const sessionCookie = await lucia.createSessionCookie(session.id)

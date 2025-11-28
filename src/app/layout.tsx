@@ -1,3 +1,5 @@
+// Validate environment variables at startup
+import "@/lib/env";
 
 import type { Metadata } from "next";
 import localFont from "next/font/local";

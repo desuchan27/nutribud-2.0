@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { Argon2id } from "oslo/password";
 import * as z from "zod";
 import { sanitizeHtml, sanitizeText } from "@/lib/sanitize";
+import { logAccountChange } from "@/lib/logger";
 
 export const updateUserSettings = async (values: z.infer<typeof userSettingsSchema>) => {
 	const { firstName, lastName, username, image, email, bio, currentPassword, newPassword, confirmNewPassword } = values;
@@ -69,6 +70,10 @@ export const updateUserSettings = async (values: z.infer<typeof userSettingsSche
 			data: updatedData,
 		});
 
+		// Log account change
+		const changeType = newPassword ? "settings_and_password_update" : "settings_update";
+		logAccountChange(sessionId!, changeType);
+
 		return {
 			success: "User settings updated successfully",
 		};
@@ -118,6 +123,10 @@ export const updateUserInfo = async (values: z.infer<typeof userInfoSchema>) => 
 			},
 		},
 	});
+
+	// Log account change
+	logAccountChange(sessionId!, "user_info_update");
+
 	revalidatePath("/home");
 	if (!!session.user?.username) {
 		revalidatePath(`/${session.user.username}`);

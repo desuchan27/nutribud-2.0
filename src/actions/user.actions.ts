@@ -6,6 +6,7 @@ import db from "@/lib/db";
 import { userRecipeSchema } from "@/schema";
 import { revalidatePath } from "next/cache";
 import { sanitizeText, sanitizeHtml } from "@/lib/sanitize";
+import { logUnauthorizedAccess, logAccountChange } from "@/lib/logger";
 
 export const getUserInfo = (id: string) => {
 	const user = db.user.findFirst({
@@ -40,42 +41,49 @@ export const submitUserBio = async (id: string, bio: string) => {
 		},
 	});
 
+	// Log account change
+	logAccountChange(id, "bio_update");
+
 	return user;
 };
 
 export const uploadProfileImage = async (id: string, image: string) => {
-
 	try {
 		const session = await validateRequest();
-		const sessionId = session.user?.id;
-
-		const existingUser = await db.user.findFirst({
-			where: {
-				id: sessionId,
-			},
-		});
-
-		if (!existingUser) {
+		
+		if (!session.user) {
 			return {
 				error: "Unauthorized",
 			};
-		} else {
-			await db.user.update({
-				where: {
-					id: existingUser.id,
-				},
-				data: {
-					profileImage: image,
-				},
-			});
+		}
+
+		// Verify that id parameter matches session user
+		if (session.user.id !== id) {
 			return {
-				success: "Profile updated successfully",
+				error: "Unauthorized",
 			};
 		}
-	} catch (error) {
-		console.error("Error updating avatar:", error); // Log any errors
+
+		await db.user.update({
+			where: {
+				id: session.user.id,
+			},
+			data: {
+				profileImage: image,
+			},
+		});
+		
 		return {
-			error: "An error occurred while updating the profile image",
+			success: "Profile updated successfully",
+		};
+	} catch (error) {
+		// Log detailed error server-side, return generic message to client
+		console.error("Error updating avatar:", error);
+		const isProduction = process.env.NODE_ENV === "production";
+		return {
+			error: isProduction 
+				? "An error occurred while updating the profile image"
+				: error instanceof Error ? error.message : "An error occurred while updating the profile image",
 		};
 	}
 };
@@ -133,6 +141,7 @@ export const userFollow = async (id: string, currentUserId: string, revalidate: 
 		// Verify that currentUserId matches the session user
 		const session = await validateRequest();
 		if (!session.user || session.user.id !== currentUserId) {
+			logUnauthorizedAccess(`follow:${id}`, currentUserId);
 			return {
 				error: "Unauthorized",
 			};
@@ -169,6 +178,7 @@ export const userUnfollow = async (id: string, currentUserId: string, revalidate
 		// Verify that currentUserId matches the session user
 		const session = await validateRequest();
 		if (!session.user || session.user.id !== currentUserId) {
+			logUnauthorizedAccess(`unfollow:${id}`, currentUserId);
 			return {
 				error: "Unauthorized",
 			};
