@@ -1,14 +1,16 @@
-// import { validateRequest } from "@/auth"; // <--- COMMENT THIS OUT
+import { validateRequest } from "@/auth";
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 
 const f = createUploadthing();
 
-// Fake auth function for testing build
+// Authenticate user for file uploads
 const auth = async () => {
-    // const session = await validateRequest();
-    // const id = session.user?.id;
-    return { id: "fake-user-id" }; // <--- RETURN FAKE ID
+    const session = await validateRequest();
+    if (!session.user) {
+        return null;
+    }
+    return { id: session.user.id };
 };
 
 export const ourFileRouter = {
