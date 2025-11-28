@@ -6,6 +6,7 @@ import { userInfoSchema, userSettingsSchema } from "@/schema";
 import { revalidatePath } from "next/cache";
 import { Argon2id } from "oslo/password";
 import * as z from "zod";
+import { sanitizeHtml, sanitizeText } from "@/lib/sanitize";
 
 export const updateUserSettings = async (values: z.infer<typeof userSettingsSchema>) => {
 	const { firstName, lastName, username, image, email, bio, currentPassword, newPassword, confirmNewPassword } = values;
@@ -24,6 +25,7 @@ export const updateUserSettings = async (values: z.infer<typeof userSettingsSche
 			error: "Unauthorized",
 		};
 	} else {
+		// Sanitize user inputs to prevent XSS
 		const updatedData: {
 			firstName: string;
 			lastName: string;
@@ -33,12 +35,12 @@ export const updateUserSettings = async (values: z.infer<typeof userSettingsSche
 			bio: string;
 			password?: string;
 		} = {
-			firstName,
-			lastName,
-			username,
-			email,
+			firstName: sanitizeText(firstName),
+			lastName: sanitizeText(lastName),
+			username: sanitizeText(username),
+			email: sanitizeText(email),
 			profileImage: image,
-			bio,
+			bio: sanitizeHtml(bio || ""),
 		};
 
 		if (newPassword && confirmNewPassword) {
@@ -97,6 +99,11 @@ export const updateUserInfo = async (values: z.infer<typeof userInfoSchema>) => 
 		},
 	});
 
+	// Sanitize allergy names
+	const sanitizedAllergies = allergies.map((allergy) => ({
+		name: sanitizeText(allergy.name),
+	}));
+
 	await db.userInfo.update({
 		where: {
 			userId: sessionId,
@@ -107,7 +114,7 @@ export const updateUserInfo = async (values: z.infer<typeof userInfoSchema>) => 
 			weight,
 			monthyBudget: monthlyBudget,
 			allergies: {
-				create: allergies,
+				create: sanitizedAllergies,
 			},
 		},
 	});

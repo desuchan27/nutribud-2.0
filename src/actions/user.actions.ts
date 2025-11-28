@@ -5,6 +5,7 @@ import { validateRequest } from "@/auth";
 import db from "@/lib/db";
 import { userRecipeSchema } from "@/schema";
 import { revalidatePath } from "next/cache";
+import { sanitizeText, sanitizeHtml } from "@/lib/sanitize";
 
 export const getUserInfo = (id: string) => {
 	const user = db.user.findFirst({
@@ -27,12 +28,15 @@ export const submitUserBio = async (id: string, bio: string) => {
 		throw new Error("User ID does not match the session user ID");
 	}
 
+	// Sanitize bio input to prevent XSS
+	const sanitizedBio = sanitizeHtml(bio);
+
 	const user = db.user.update({
 		where: {
 			id: id,
 		},
 		data: {
-			bio: bio,
+			bio: sanitizedBio,
 		},
 	});
 
@@ -88,11 +92,23 @@ export const submitUserRecipe = async (
 
 		const { ingredients, image, ...recipes } = values;
 
+		// Sanitize user-generated content to prevent XSS
+		const sanitizedRecipe = {
+			...recipes,
+			title: sanitizeText(recipes.title),
+			procedure: sanitizeHtml(recipes.procedure),
+		};
+
+		const sanitizedIngredients = ingredients.map((ing) => ({
+			...ing,
+			name: sanitizeText(ing.name),
+		}));
+
 		await db.recipe.create({
 			data: {
-				...recipes,
+				...sanitizedRecipe,
 				ingredients: {
-					create: ingredients,
+					create: sanitizedIngredients,
 				},
 				recipeImage: {
 					create: image,
@@ -114,6 +130,21 @@ export const submitUserRecipe = async (
 
 export const userFollow = async (id: string, currentUserId: string, revalidate: string | undefined = undefined) => {
 	try {
+		// Verify that currentUserId matches the session user
+		const session = await validateRequest();
+		if (!session.user || session.user.id !== currentUserId) {
+			return {
+				error: "Unauthorized",
+			};
+		}
+
+		// Prevent self-following
+		if (id === currentUserId) {
+			return {
+				error: "Cannot follow yourself",
+			};
+		}
+
 		await db.follows.create({
 			data: {
 				followerId: currentUserId, // The user initiating the follow
@@ -124,13 +155,25 @@ export const userFollow = async (id: string, currentUserId: string, revalidate: 
 			revalidatePath(revalidate);
 		}
 		revalidatePath("/home");
+		return { success: true };
 	} catch (error) {
 		console.log(error);
+		return {
+			error: "An error occurred while following the user",
+		};
 	}
 };
 
 export const userUnfollow = async (id: string, currentUserId: string, revalidate: string | undefined = undefined) => {
 	try {
+		// Verify that currentUserId matches the session user
+		const session = await validateRequest();
+		if (!session.user || session.user.id !== currentUserId) {
+			return {
+				error: "Unauthorized",
+			};
+		}
+
 		await db.follows.deleteMany({
 			where: {
 				followerId: currentUserId,
@@ -141,7 +184,11 @@ export const userUnfollow = async (id: string, currentUserId: string, revalidate
 			revalidatePath(revalidate);
 		}
 		revalidatePath("/home");
+		return { success: true };
 	} catch (error) {
 		console.log(error);
+		return {
+			error: "An error occurred while unfollowing the user",
+		};
 	}
 };

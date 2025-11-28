@@ -7,14 +7,24 @@ import { redirect } from "next/navigation";
 import { Argon2id } from "oslo/password";
 import { lucia, validateRequest } from "@/auth";
 import { cookies } from "next/headers";
-
-// === RATE LIMITING MAP ===
-const loginAttempts = new Map<string, number>();
+import { rateLimit } from "@/lib/rate-limit";
 
 export const register = async (values: z.infer<typeof registerUserSchema>) => {
   try {
     const { email, firstName, lastName, username, password, confirmPassword } =
       values;
+
+    // Rate limiting: 5 registrations per 15 minutes per email
+    const rateLimitResult = rateLimit(`register:${email}`, {
+      maxRequests: 5,
+      windowMs: 15 * 60 * 1000, // 15 minutes
+    });
+
+    if (!rateLimitResult.success) {
+      return {
+        error: `Too many registration attempts. Please try again in ${rateLimitResult.retryAfter} seconds.`,
+      };
+    }
 
     // check if email exists
     const existingUserEmail = await db.user.findFirst({
@@ -80,16 +90,17 @@ export const register = async (values: z.infer<typeof registerUserSchema>) => {
 export const login = async (values: z.infer<typeof loginUserSchema>) => {
   const { email, password } = values;
 
-  // === RATE LIMITING CHECK ===
-  const attempts = loginAttempts.get(email) || 0;
-  if (attempts >= 5) {
-    return { error: "Too many login attempts. Try again in 15 minutes." };
+  // Rate limiting: 5 login attempts per 15 minutes per email
+  const rateLimitResult = rateLimit(`login:${email}`, {
+    maxRequests: 5,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+  });
+
+  if (!rateLimitResult.success) {
+    return {
+      error: `Too many login attempts. Please try again in ${rateLimitResult.retryAfter} seconds.`,
+    };
   }
-  loginAttempts.set(email, attempts + 1);
-  setTimeout(() => {
-    const current = loginAttempts.get(email);
-    if (current) loginAttempts.set(email, current - 1);
-  }, 15 * 60 * 1000); // 15 minutes
 
   const existingUser = await db.user.findFirst({
     where: {
@@ -97,20 +108,21 @@ export const login = async (values: z.infer<typeof loginUserSchema>) => {
     }
   })
 
+  // Use generic error message to prevent email enumeration
+  // Always perform password verification to prevent timing attacks
   if (!existingUser) {
-    return { error: "Invalid Email/Doesn't exist" }
+    // Still hash a dummy password to prevent timing attacks
+    await new Argon2id().hash("dummy");
+    return { error: "Invalid email or password" }
   }
 
   const validPassword = await new Argon2id().verify(existingUser.password, password)
 
   if (!validPassword) {
     return {
-      error: "Password is incorrect"
+      error: "Invalid email or password"
     }
   }
-
-  // Reset rate limit on successful login
-  loginAttempts.set(email, 0);
 
   const session = await lucia.createSession(existingUser.id, {})
   const sessionCookie = await lucia.createSessionCookie(session.id)
