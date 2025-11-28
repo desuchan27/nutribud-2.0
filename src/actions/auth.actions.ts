@@ -36,6 +36,23 @@ export const register = async (values: z.infer<typeof registerUserSchema>) => {
       return { error: "Passwords do not match" };
     }
 
+    //PASSWORD STRENGTH VALIDATION
+    if (password.length < 8) {
+      return { error: "Password must be at least 8 characters long" };
+    }
+    if (!/(?=.*[a-z])/.test(password)) {
+      return { error: "Password must contain at least one lowercase letter" };
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      return { error: "Password must contain at least one uppercase letter" };
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return { error: "Password must contain at least one number" };
+    }
+    if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(password)) {
+      return { error: "Password must contain at least one special character" };
+    }
+
     const hashedPassword = await new Argon2id().hash(password);
 
     await db.user.create({
