@@ -66,7 +66,7 @@ export const submitUserInfo = async (userId: string, values: z.infer<typeof user
 							birthDate,
 							height,
 							weight,
-							monthyBudget: monthlyBudget ?? 0,
+							monthlyBudget: monthlyBudget ?? 0,
 							allergies: {
 								create: allergies,
 							},
@@ -86,7 +86,7 @@ export const submitUserInfo = async (userId: string, values: z.infer<typeof user
 							birthDate,
 							height,
 							weight,
-							monthyBudget: monthlyBudget ?? 0,
+							monthlyBudget: monthlyBudget ?? 0,
 							allergies: {
 								create: allergies,
 							},
