@@ -69,7 +69,7 @@ model UserInfo {
   userId    String     @unique
 
   // this serves as the user's monthly budget to filter the recipe
-  monthlyBudget Float
+  monthyBudget Float
 
   // user's allergies (similar to tag/search filtering)
   allergies Allergies[]
